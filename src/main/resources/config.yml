@@ -1,0 +1,18 @@
+webhook:
+  url: ""
+  username: "Server Status"
+  avatar: ""
+
+startup:
+  enabled: true
+  title: "🟢 SERVER ONLINE"
+  description: "The server has started successfully."
+  color: 5763719
+  footer: "Server Status"
+
+shutdown:
+  enabled: true
+  title: "🔴 SERVER OFFLINE"
+  description: "The server has stopped."
+  color: 15548997
+  footer: "Server Status"
