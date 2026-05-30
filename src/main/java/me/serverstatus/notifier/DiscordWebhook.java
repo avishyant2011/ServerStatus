@@ -1,21 +1,18 @@
 package me.serverstatus.notifier;
 
 import javax.net.ssl.HttpsURLConnection;
-import java.awt.Color;
 import java.io.OutputStream;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class DiscordWebhook {
 
     private final String url;
     private String username;
     private String avatarUrl;
-    private final List<EmbedObject> embeds = new ArrayList<>();
+    private final List<Embed> embeds = new ArrayList<>();
 
     public DiscordWebhook(String url) {
         this.url = url;
@@ -29,94 +26,109 @@ public class DiscordWebhook {
         this.avatarUrl = avatarUrl;
     }
 
-    public void addEmbed(EmbedObject embed) {
+    public void addEmbed(Embed embed) {
         embeds.add(embed);
     }
 
-    public void execute() throws Exception {
+    public void execute() {
+        try {
+            HttpsURLConnection connection =
+                    (HttpsURLConnection) new URL(url).openConnection();
 
-        Map<String, Object> json = new HashMap<>();
+            connection.setRequestMethod("POST");
+            connection.setRequestProperty("Content-Type", "application/json");
+            connection.setDoOutput(true);
 
-        json.put("username", username);
-        json.put("avatar_url", avatarUrl);
+            String payload = buildJson();
 
-        if (!embeds.isEmpty()) {
-
-            List<Map<String, Object>> embedObjects = new ArrayList<>();
-
-            for (EmbedObject embed : embeds) {
-                embedObjects.add(embed.toMap());
+            try (OutputStream stream = connection.getOutputStream()) {
+                stream.write(payload.getBytes(StandardCharsets.UTF_8));
             }
 
-            json.put("embeds", embedObjects);
+            connection.getInputStream().close();
+            connection.disconnect();
+
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-
-        String payload = JsonUtil.toJson(json);
-
-        HttpsURLConnection connection =
-                (HttpsURLConnection) new URL(url).openConnection();
-
-        connection.setRequestMethod("POST");
-        connection.setRequestProperty(
-                "Content-Type",
-                "application/json"
-        );
-
-        connection.setDoOutput(true);
-
-        try (OutputStream stream = connection.getOutputStream()) {
-            stream.write(payload.getBytes(StandardCharsets.UTF_8));
-        }
-
-        connection.getInputStream().close();
-        connection.disconnect();
     }
 
-    public static class EmbedObject {
+    private String buildJson() {
+        StringBuilder json = new StringBuilder("{");
 
+        if (username != null) {
+            json.append("\"username\":\"").append(escape(username)).append("\",");
+        }
+
+        if (avatarUrl != null) {
+            json.append("\"avatar_url\":\"").append(escape(avatarUrl)).append("\",");
+        }
+
+        json.append("\"embeds\":[");
+        for (int i = 0; i < embeds.size(); i++) {
+            json.append(embeds.get(i).toJson());
+            if (i + 1 < embeds.size()) json.append(",");
+        }
+        json.append("]}");
+
+        return json.toString();
+    }
+
+    private static String escape(String text) {
+        return text
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "");
+    }
+
+    public static class Embed {
         private String title;
         private String description;
-        private Color color;
+        private int color;
         private String footer;
 
-        public EmbedObject setTitle(String title) {
+        public Embed setTitle(String title) {
             this.title = title;
             return this;
         }
 
-        public EmbedObject setDescription(String description) {
+        public Embed setDescription(String description) {
             this.description = description;
             return this;
         }
 
-        public EmbedObject setColor(int color) {
-            this.color = new Color(color);
+        public Embed setColor(int color) {
+            this.color = color;
             return this;
         }
 
-        public EmbedObject setFooter(String footer, String iconUrl) {
+        public Embed setFooter(String footer) {
             this.footer = footer;
             return this;
         }
 
-        public Map<String, Object> toMap() {
+        private String toJson() {
+            StringBuilder json = new StringBuilder("{");
 
-            Map<String, Object> map = new HashMap<>();
-
-            map.put("title", title);
-            map.put("description", description);
-
-            if (color != null) {
-                map.put("color", color.getRGB() & 0xFFFFFF);
+            if (title != null) {
+                json.append("\"title\":\"").append(escape(title)).append("\",");
             }
+
+            if (description != null) {
+                json.append("\"description\":\"").append(escape(description)).append("\",");
+            }
+
+            json.append("\"color\":").append(color);
 
             if (footer != null) {
-                Map<String, Object> footerMap = new HashMap<>();
-                footerMap.put("text", footer);
-                map.put("footer", footerMap);
+                json.append(",\"footer\":{\"text\":\"")
+                        .append(escape(footer))
+                        .append("\"}");
             }
 
-            return map;
+            json.append("}");
+            return json.toString();
         }
     }
 }
