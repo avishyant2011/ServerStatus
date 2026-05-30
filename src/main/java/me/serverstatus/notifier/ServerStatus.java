@@ -12,92 +12,72 @@ public class ServerStatus extends JavaPlugin {
         saveDefaultConfig();
 
         Bukkit.getScheduler().runTaskLater(this, () -> {
+
+            if (Bukkit.hasWhitelist()) {
+                getLogger().info("Whitelist enabled. Startup embed skipped.");
+                return;
+            }
+
             sendEmbed("startup");
         }, 20L);
     }
 
     @Override
     public void onDisable() {
+
+        if (Bukkit.hasWhitelist()) {
+            getLogger().info("Whitelist enabled. Shutdown embed skipped.");
+            return;
+        }
+
         sendEmbed("shutdown");
     }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
 
-        if (!sender.hasPermission("serverstatus.admin")) {
-            sender.sendMessage("§cNo permission.");
+        if (!command.getName().equalsIgnoreCase("sendembed")) return false;
+
+        if (!sender.hasPermission("serverstatus.send")) {
+            sender.sendMessage("You do not have permission to use this command.");
             return true;
         }
 
         if (args.length == 0) {
-            sender.sendMessage("§e/serverstatus reload");
-            sender.sendMessage("§e/serverstatus startup");
-            sender.sendMessage("§e/serverstatus shutdown");
+            sender.sendMessage("Usage: /sendembed <start|stop>");
             return true;
         }
 
-        switch (args[0].toLowerCase()) {
-
-            case "reload":
-                reloadConfig();
-                sender.sendMessage("§aConfig reloaded.");
-                break;
-
-            case "startup":
-                sendEmbed("startup");
-                sender.sendMessage("§aStartup embed sent.");
-                break;
-
-            case "shutdown":
-                sendEmbed("shutdown");
-                sender.sendMessage("§aShutdown embed sent.");
-                break;
+        if (args[0].equalsIgnoreCase("start")) {
+            sendEmbed("startup");
+            sender.sendMessage("Startup embed sent.");
+        } else if (args[0].equalsIgnoreCase("stop")) {
+            sendEmbed("shutdown");
+            sender.sendMessage("Shutdown embed sent.");
+        } else {
+            sender.sendMessage("Invalid argument. Use start or stop.");
         }
 
         return true;
     }
 
-    private void sendEmbed(String section) {
+    private void sendEmbed(String path) {
+        if (!getConfig().getBoolean(path + ".enabled")) return;
 
-        if (!getConfig().getBoolean(section + ".enabled")) {
-            return;
-        }
+        String webhookUrl = getConfig().getString("webhook.url");
+        if (webhookUrl == null || webhookUrl.isEmpty()) return;
 
-        try {
+        DiscordWebhook webhook = new DiscordWebhook(webhookUrl);
+        webhook.setUsername(getConfig().getString("webhook.username"));
+        webhook.setAvatarUrl(getConfig().getString("webhook.avatar"));
 
-            DiscordWebhook webhook =
-                    new DiscordWebhook(getConfig().getString("webhook.url"));
+        DiscordWebhook.Embed embed = new DiscordWebhook.Embed()
+                .setTitle(getConfig().getString(path + ".title"))
+                .setDescription(getConfig().getString(path + ".description"))
+                .setColor(getConfig().getInt(path + ".color"))
+                .setFooter(getConfig().getString(path + ".footer"));
 
-            webhook.setUsername(
-                    getConfig().getString("webhook.username")
-            );
-
-            webhook.setAvatarUrl(
-                    getConfig().getString("webhook.avatar")
-            );
-
-            DiscordWebhook.EmbedObject embed =
-                    new DiscordWebhook.EmbedObject()
-                            .setTitle(
-                                    getConfig().getString(section + ".title")
-                            )
-                            .setDescription(
-                                    getConfig().getString(section + ".description")
-                            )
-                            .setColor(
-                                    getConfig().getInt(section + ".color")
-                            )
-                            .setFooter(
-                                    getConfig().getString(section + ".footer"),
-                                    null
-                            );
-
-            webhook.addEmbed(embed);
-            webhook.execute();
-
-        } catch (Exception exception) {
-            getLogger().warning("Failed to send Discord webhook.");
-            exception.printStackTrace();
-        }
+        webhook.addEmbed(embed);
+        webhook.execute();
     }
 }
