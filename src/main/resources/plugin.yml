@@ -1,16 +1,16 @@
 name: ServerStatus
 version: 1.0.0
 main: me.serverstatus.notifier.ServerStatus
-api-version: '1.20'
+api-version: 1.20
 
 author: ServerStatus
-description: Discord webhook notifications for Minecraft servers.
+description: Discord embed notifications for server status
 
 commands:
-  serverstatus:
-    description: Main plugin command
-    permission: serverstatus.admin
+  sendembed:
+    description: Send a test embed
+    permission: serverstatus.send
 
 permissions:
-  serverstatus.admin:
+  serverstatus.send:
     default: op
